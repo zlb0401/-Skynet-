@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8de1608aad44e9d4290828b5378a2f7c, type: 3}
+  m_Name: WispLeft
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyData
+  enemyName: 左侧小精灵
+  health: 18
+  enemySprite: {fileID: -5833361484094264668, guid: a94dba0b6f80dba4d838593e1b5ecc0a, type: 3}
+  position: {x: -540, y: 180}
+  size: {x: 100, y: 100}
+  enemyAIType: 4
+  attackIntentIcon: {fileID: 8442774558652979393, guid: 8e8493d63fef06d4f8dd4904b06d0ded, type: 3}
+  buffIntentIcon: {fileID: 7814738740268439231, guid: 6f6fa6f47109db34cb1d68c6fa85a68d, type: 3}
+  healIntentIcon: {fileID: 5435552896162202266, guid: 851711ba4c021f04b99affb8dcbba5f1, type: 3}
+  awakenIntentIcon: {fileID: 0}
+  summonLeftData: {fileID: 0}
+  summonRightData: {fileID: 0}
+  shadowMode: 0
+  shadowWidthMultiplier: 0.75
+  shadowHeightToWidth: 0.2
+  shadowOffset: {x: 0, y: -10}
+  manualShadowSize: {x: 180, y: 28}

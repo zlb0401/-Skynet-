@@ -1,0 +1,30 @@
+# runtime / secrets
+logs/
+*.log
+*.pid
+.env
+*.pem
+
+# skynet engine (clone separately)
+skynet/
+
+# Unity
+client/CardBattle-Unity6/Library/
+client/CardBattle-Unity6/Temp/
+client/CardBattle-Unity6/Logs/
+client/CardBattle-Unity6/Obj/
+client/CardBattle-Unity6/Build/
+client/CardBattle-Unity6/Builds/
+client/CardBattle-Unity6/.vs/
+client/CardBattle-Unity6/*.csproj
+client/CardBattle-Unity6/*.sln
+client/CardBattle-Unity6/*.suo
+client/CardBattle-Unity6/UserSettings/
+client/CardBattle-Unity6/MemoryCaptures/
+*.apk
+*.aab
+*.unitypackage
+
+# OS
+.DS_Store
+Thumbs.db

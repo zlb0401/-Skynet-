@@ -1,0 +1,18 @@
+CREATE DATABASE IF NOT EXISTS card_battle DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'card'@'127.0.0.1' IDENTIFIED BY 'CHANGE_ME';
+GRANT ALL PRIVILEGES ON card_battle.* TO 'card'@'127.0.0.1';
+FLUSH PRIVILEGES;
+
+USE card_battle;
+
+CREATE TABLE IF NOT EXISTS users (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username    VARCHAR(32)  NOT NULL UNIQUE,
+    password    VARCHAR(64)  NOT NULL,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO users (id, username, password) VALUES
+    (1, 'test', '123456'),
+    (2, 'demo', '123456');
