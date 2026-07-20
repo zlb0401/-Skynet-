@@ -242,13 +242,11 @@ namespace CardBattle.Network
             }
             finally
             {
-                if (epoch != _connectionEpoch)
+                if (epoch == _connectionEpoch)
                 {
-                    return;
+                    _connected = false;
+                    _incoming.Enqueue(new Packet(MsgDisconnect, Array.Empty<byte>()));
                 }
-
-                _connected = false;
-                _incoming.Enqueue(new Packet(MsgDisconnect, Array.Empty<byte>()));
             }
         }
 
