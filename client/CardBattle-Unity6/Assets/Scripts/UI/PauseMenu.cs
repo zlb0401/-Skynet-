@@ -6,6 +6,8 @@ public class PauseMenu : MonoBehaviour
 {
     [SerializeField] private GameObject root; // the panel root GO
 
+    private const float ButtonGap = 120f;
+
     private void Awake()
     {
         if (root) root.SetActive(false);
@@ -14,6 +16,7 @@ public class PauseMenu : MonoBehaviour
     private void Start()
     {
         EnsureBackButton();
+        LayoutPauseButtons();
     }
 
     public void Show()
@@ -21,6 +24,7 @@ public class PauseMenu : MonoBehaviour
         if (root) root.SetActive(true);
         Time.timeScale = 0f;
         EnsureBackButton();
+        LayoutPauseButtons();
     }
 
     public void Hide()
@@ -62,67 +66,76 @@ public class PauseMenu : MonoBehaviour
             return;
         }
 
-        // Prefer cloning RetryButton for matching style.
         var retry = root.transform.Find("RetryButton") as RectTransform;
-        GameObject go;
-        if (retry != null)
+        if (retry == null)
         {
-            go = Instantiate(retry.gameObject, root.transform);
-            go.name = "BackButton";
-            var rt = go.GetComponent<RectTransform>();
-            // Place between title and retry if possible.
-            var mainMenu = root.transform.Find("MainMenuButton") as RectTransform;
-            if (mainMenu != null)
-            {
-                rt.anchoredPosition = new Vector2(
-                    mainMenu.anchoredPosition.x,
-                    (retry.anchoredPosition.y + mainMenu.anchoredPosition.y) * 0.5f);
-            }
-            else
-            {
-                rt.anchoredPosition = retry.anchoredPosition + new Vector2(0f, 90f);
-            }
-
-            var label = go.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-            {
-                label.text = "返回";
-                ChineseFontBootstrap.ApplyChineseFont(label);
-            }
-
-            var btn = go.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick = new Button.ButtonClickedEvent();
-                btn.onClick.AddListener(OnClickBack);
-            }
+            return;
         }
-        else
+
+        // Clone Retry so sprite / colors / TMP style match exactly.
+        var go = Instantiate(retry.gameObject, root.transform);
+        go.name = "BackButton";
+        go.transform.SetSiblingIndex(retry.GetSiblingIndex());
+
+        var label = go.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
         {
-            go = new GameObject("BackButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(root.transform, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(280f, 70f);
-            rt.anchoredPosition = new Vector2(0f, -40f);
-            var img = go.GetComponent<Image>();
-            img.color = new Color(0.25f, 0.45f, 0.7f, 1f);
-            var btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
+            label.text = "返回";
+            ChineseFontBootstrap.ApplyChineseFont(label);
+        }
+
+        var btn = go.GetComponent<Button>();
+        if (btn != null)
+        {
+            btn.onClick = new Button.ButtonClickedEvent();
             btn.onClick.AddListener(OnClickBack);
-
-            var textGo = new GameObject("Text", typeof(RectTransform));
-            textGo.transform.SetParent(go.transform, false);
-            var tr = textGo.GetComponent<RectTransform>();
-            tr.anchorMin = Vector2.zero;
-            tr.anchorMax = Vector2.one;
-            tr.offsetMin = Vector2.zero;
-            tr.offsetMax = Vector2.zero;
-            var text = textGo.AddComponent<TextMeshProUGUI>();
-            ChineseFontBootstrap.ApplyChineseFont(text);
-            text.text = "返回";
-            text.fontSize = 32f;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
         }
+    }
+
+    /// <summary>
+    /// Stack 返回 / 重试 / 主菜单 with even gaps (avoids midpoint overlap).
+    /// </summary>
+    private void LayoutPauseButtons()
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        var back = root.transform.Find("BackButton") as RectTransform;
+        var retry = root.transform.Find("RetryButton") as RectTransform;
+        var mainMenu = root.transform.Find("MainMenuButton") as RectTransform;
+        if (retry == null || mainMenu == null)
+        {
+            return;
+        }
+
+        float x = retry.anchoredPosition.x;
+        var size = retry.sizeDelta;
+
+        // Center the three-button stack around the original retry position.
+        float midY = retry.anchoredPosition.y;
+        float topY = midY + ButtonGap;
+        float bottomY = midY - ButtonGap;
+
+        if (back != null)
+        {
+            back.sizeDelta = size;
+            back.anchorMin = retry.anchorMin;
+            back.anchorMax = retry.anchorMax;
+            back.pivot = retry.pivot;
+            back.anchoredPosition = new Vector2(x, topY);
+            back.localScale = Vector3.one;
+        }
+
+        retry.sizeDelta = size;
+        retry.anchoredPosition = new Vector2(x, midY);
+
+        mainMenu.sizeDelta = size;
+        mainMenu.anchorMin = retry.anchorMin;
+        mainMenu.anchorMax = retry.anchorMax;
+        mainMenu.pivot = retry.pivot;
+        mainMenu.anchoredPosition = new Vector2(x, bottomY);
+        mainMenu.localScale = Vector3.one;
     }
 }

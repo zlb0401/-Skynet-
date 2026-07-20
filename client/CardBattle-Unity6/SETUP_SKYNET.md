@@ -5,7 +5,7 @@
 ## Windows 下载
 
 ```powershell
-scp root@127.0.0.1:/root/CardBattle-Unity6.tar.gz D:\Projects\
+scp root@YOUR_SERVER_IP:/root/CardBattle-Unity6.tar.gz D:\Projects\
 cd D:\Projects
 tar -xzf CardBattle-Unity6.tar.gz
 ```
@@ -39,7 +39,7 @@ MainMenu → Battle1 → Reward1 → BattleBoss1 → Victory
 ## 网络配置
 
 - 脚本：`Assets/Scripts/Network/`
-- 地址：`Assets/Resources/Network/ServerConfig.asset`（127.0.0.1:8888）
+- 地址：`Assets/Resources/Network/ServerConfig.asset`（YOUR_SERVER_IP:8888）
 - 无需手动拖引用，启动时自动创建 `GameNetwork`
 
 ## 常见问题
