@@ -16,6 +16,7 @@ public class PauseMenu : MonoBehaviour
     private void Start()
     {
         EnsureBackButton();
+        ApplyButtonLabels();
         LayoutPauseButtons();
     }
 
@@ -24,6 +25,7 @@ public class PauseMenu : MonoBehaviour
         if (root) root.SetActive(true);
         Time.timeScale = 0f;
         EnsureBackButton();
+        ApplyButtonLabels();
         LayoutPauseButtons();
     }
 
@@ -77,13 +79,6 @@ public class PauseMenu : MonoBehaviour
         go.name = "BackButton";
         go.transform.SetSiblingIndex(retry.GetSiblingIndex());
 
-        var label = go.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-        {
-            label.text = "返回";
-            ChineseFontBootstrap.ApplyChineseFont(label);
-        }
-
         var btn = go.GetComponent<Button>();
         if (btn != null)
         {
@@ -93,7 +88,68 @@ public class PauseMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Stack 返回 / 重试 / 主菜单 with even gaps (avoids midpoint overlap).
+    /// Keep Back label style identical to Retry (do not swap ChineseFontBootstrap font).
+    /// </summary>
+    private void ApplyButtonLabels()
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        var retry = root.transform.Find("RetryButton");
+        var back = root.transform.Find("BackButton");
+        var mainMenu = root.transform.Find("MainMenuButton");
+
+        var retryLabel = retry != null ? retry.GetComponentInChildren<TMP_Text>(true) : null;
+        if (retryLabel != null)
+        {
+            retryLabel.text = "重开";
+        }
+
+        var backLabel = back != null ? back.GetComponentInChildren<TMP_Text>(true) : null;
+        if (backLabel != null && retryLabel != null)
+        {
+            CopyTmpStyle(retryLabel, backLabel);
+            backLabel.text = "返回";
+        }
+
+        var mainLabel = mainMenu != null ? mainMenu.GetComponentInChildren<TMP_Text>(true) : null;
+        if (mainLabel != null && retryLabel != null)
+        {
+            // Keep 主菜单 wording; only align font metrics with retry if drifted.
+            var text = string.IsNullOrEmpty(mainLabel.text) ? "主菜单" : mainLabel.text;
+            CopyTmpStyle(retryLabel, mainLabel);
+            mainLabel.text = text;
+        }
+    }
+
+    private static void CopyTmpStyle(TMP_Text from, TMP_Text to)
+    {
+        if (from == null || to == null || from == to)
+        {
+            return;
+        }
+
+        to.font = from.font;
+        to.fontSharedMaterial = from.fontSharedMaterial;
+        to.fontSize = from.fontSize;
+        to.fontSizeBase = from.fontSizeBase;
+        to.fontStyle = from.fontStyle;
+        to.fontWeight = from.fontWeight;
+        to.color = from.color;
+        to.alignment = from.alignment;
+        to.enableAutoSizing = from.enableAutoSizing;
+        to.characterSpacing = from.characterSpacing;
+        to.wordSpacing = from.wordSpacing;
+        to.lineSpacing = from.lineSpacing;
+        to.margin = from.margin;
+        to.enableWordWrapping = from.enableWordWrapping;
+        to.overflowMode = from.overflowMode;
+    }
+
+    /// <summary>
+    /// Stack 返回 / 重开 / 主菜单 with even gaps (avoids midpoint overlap).
     /// </summary>
     private void LayoutPauseButtons()
     {

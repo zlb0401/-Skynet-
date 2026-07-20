@@ -113,7 +113,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 重试
+  m_text: 重开
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c81e3e27f1e77db4fbba1734c9c1a345, type: 2}
   m_sharedMaterial: {fileID: -5293015429705894655, guid: c81e3e27f1e77db4fbba1734c9c1a345, type: 2}
