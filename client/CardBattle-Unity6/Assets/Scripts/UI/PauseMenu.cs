@@ -134,9 +134,7 @@ public class PauseMenu : MonoBehaviour
         to.font = from.font;
         to.fontSharedMaterial = from.fontSharedMaterial;
         to.fontSize = from.fontSize;
-        to.fontSizeBase = from.fontSizeBase;
         to.fontStyle = from.fontStyle;
-        to.fontWeight = from.fontWeight;
         to.color = from.color;
         to.alignment = from.alignment;
         to.enableAutoSizing = from.enableAutoSizing;
