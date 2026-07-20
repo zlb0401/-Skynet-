@@ -20,6 +20,9 @@ namespace CardBattle.Network
         private readonly ConcurrentQueue<Packet> _incoming = new();
         private readonly List<byte> _recvBuffer = new();
         private bool _connected;
+        private bool _disconnectNotified;
+        private int _connectionEpoch;
+        private const ushort MsgDisconnect = 0;
 
         public bool IsConnected => _connected;
         public uint Uid { get; private set; }
@@ -83,8 +86,11 @@ namespace CardBattle.Network
             await _client.ConnectAsync(serverConfig.host, serverConfig.port);
             _stream = _client.GetStream();
             _connected = true;
+            _disconnectNotified = false;
             _cts = new CancellationTokenSource();
-            _ = Task.Run(() => ReceiveLoop(_cts.Token));
+            var epoch = ++_connectionEpoch;
+            var token = _cts.Token;
+            _ = Task.Run(() => ReceiveLoop(epoch, token));
             Debug.Log($"[Network] connected to {serverConfig.host}:{serverConfig.port}");
         }
 
@@ -121,25 +127,48 @@ namespace CardBattle.Network
 
         public void Disconnect()
         {
-            if (!_connected)
+            // Always clear session fields so UI can treat us as logged out.
+            Uid = 0;
+            Token = string.Empty;
+            _recvBuffer.Clear();
+
+            if (!_connected && _client == null && _stream == null)
             {
-                Uid = 0;
                 return;
             }
 
             _connected = false;
-            _cts?.Cancel();
+            // Invalidate any in-flight receive loop so its finally cannot clear a newer session.
+            _connectionEpoch++;
 
-            try { _stream?.Close(); } catch { /* ignore */ }
-            try { _client?.Close(); } catch { /* ignore */ }
-
+            var cts = _cts;
+            _cts = null;
+            var stream = _stream;
             _stream = null;
+            var client = _client;
             _client = null;
-            _recvBuffer.Clear();
-            Uid = 0;
-            Token = string.Empty;
-            OnDisconnected?.Invoke("disconnected");
-            Debug.Log("[Network] disconnected");
+
+            try
+            {
+                cts?.Cancel();
+            }
+            catch
+            {
+                /* ignore */
+            }
+
+            // Closing TcpClient/NetworkStream on the Unity main thread while ReceiveLoop
+            // is blocked in ReadAsync can deadlock in standalone Mono builds (Editor often OK).
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try { stream?.Close(); } catch { /* ignore */ }
+                try { client?.Close(); } catch { /* ignore */ }
+                try { cts?.Dispose(); } catch { /* ignore */ }
+            });
+
+            // Raise disconnect on the next Update (main thread), never from the worker.
+            _incoming.Enqueue(new Packet(MsgDisconnect, Array.Empty<byte>()));
+            Debug.Log("[Network] disconnect requested");
         }
 
         private void SendPacket(ushort msgId, byte[] payload = null)
@@ -150,19 +179,34 @@ namespace CardBattle.Network
                 return;
             }
 
-            var data = PacketCodec.Pack(msgId, payload);
-            _stream.Write(data, 0, data.Length);
-            _stream.Flush();
+            try
+            {
+                var data = PacketCodec.Pack(msgId, payload);
+                _stream.Write(data, 0, data.Length);
+                _stream.Flush();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Network] send failed: {ex.Message}");
+                _connected = false;
+                _incoming.Enqueue(new Packet(MsgDisconnect, Array.Empty<byte>()));
+            }
         }
 
-        private async Task ReceiveLoop(CancellationToken token)
+        private async Task ReceiveLoop(int epoch, CancellationToken token)
         {
             var temp = new byte[4096];
             try
             {
-                while (!token.IsCancellationRequested && _connected)
+                while (!token.IsCancellationRequested && _connected && _stream != null && epoch == _connectionEpoch)
                 {
-                    var n = await _stream.ReadAsync(temp, 0, temp.Length, token);
+                    var stream = _stream;
+                    if (stream == null)
+                    {
+                        break;
+                    }
+
+                    var n = await stream.ReadAsync(temp, 0, temp.Length, token).ConfigureAwait(false);
                     if (n <= 0)
                     {
                         break;
@@ -183,27 +227,53 @@ namespace CardBattle.Network
             {
                 // normal shutdown
             }
+            catch (ObjectDisposedException)
+            {
+                // stream closed during logout
+            }
             catch (Exception ex)
             {
+                // Do not invoke Unity events from this worker thread.
                 Debug.LogError($"[Network] receive error: {ex.Message}");
-                _incoming.Enqueue(new Packet(MessageIds.S2C_Error, Array.Empty<byte>()));
-                OnError?.Invoke(ex.Message);
+                if (epoch == _connectionEpoch)
+                {
+                    _incoming.Enqueue(new Packet(MessageIds.S2C_Error, Array.Empty<byte>()));
+                }
             }
             finally
             {
-                if (_connected)
+                if (epoch != _connectionEpoch)
                 {
-                    _connected = false;
-                    _incoming.Enqueue(new Packet(0, Array.Empty<byte>()));
+                    return;
                 }
+
+                _connected = false;
+                _incoming.Enqueue(new Packet(MsgDisconnect, Array.Empty<byte>()));
             }
+        }
+
+        private void NotifyDisconnected(string msg)
+        {
+            if (_disconnectNotified)
+            {
+                return;
+            }
+
+            _disconnectNotified = true;
+            OnDisconnected?.Invoke(msg);
         }
 
         private void HandlePacket(Packet packet)
         {
-            if (!_connected && packet.MsgId == 0)
+            if (packet.MsgId == MsgDisconnect)
             {
-                OnDisconnected?.Invoke("connection lost");
+                // Stale disconnect from a previous socket — ignore if already reconnected.
+                if (_connected)
+                {
+                    return;
+                }
+
+                NotifyDisconnected("disconnected");
                 return;
             }
 

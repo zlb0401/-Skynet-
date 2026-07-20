@@ -641,8 +641,8 @@ public class SkynetOnlineOverlay : MonoBehaviour
 
     private void OnLogoutClicked()
     {
+        // Flip gate first so disconnect callbacks cannot fight the UI.
         OnlineSession.Clear();
-        _network?.Disconnect();
         _loggedIn = false;
         _busy = false;
         if (_loginButton != null)
@@ -657,6 +657,16 @@ public class SkynetOnlineOverlay : MonoBehaviour
 
         ApplyGateState("已退出登录，请重新登录");
         StartCoroutine(RefreshInputCaretsNextFrame());
+
+        // Disconnect last: player builds can block if Close runs on the main thread.
+        try
+        {
+            _network?.Disconnect();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[SkynetOnline] disconnect on logout: " + ex.Message);
+        }
     }
 
     private void HandleLoginResult(LoginResult result)
@@ -740,15 +750,14 @@ public class SkynetOnlineOverlay : MonoBehaviour
 
     private void HandleDisconnected(string msg)
     {
-        if (_loggedIn)
+        // Intentional logout already refreshed the gate; avoid stomping the login form.
+        if (!_loggedIn)
         {
-            _loggedIn = false;
-            ApplyGateState(msg);
+            return;
         }
-        else
-        {
-            SetStatus(msg);
-        }
+
+        _loggedIn = false;
+        ApplyGateState(string.IsNullOrEmpty(msg) ? "连接已断开" : msg);
     }
 
     private void SetStatus(string msg)
