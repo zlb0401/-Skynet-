@@ -23,6 +23,14 @@ local function send_package(msg_id_value, payload)
 	socket.write(client_fd, data)
 end
 
+local function apply_auth_success(user, user_id, user_token)
+	logged_in = true
+	uid = user_id
+	username = user
+	token = user_token
+	skynet.error(string.format("[agent] fd=%d auth ok user=%s uid=%d", client_fd, user, user_id))
+end
+
 local function handle_login(payload)
 	local user, pass = protocol.unpack_login_req(payload)
 	if not user then
@@ -33,11 +41,21 @@ local function handle_login(payload)
 	local ok, user_id, user_token, message = skynet.call(LOGIN, "lua", "login", user, pass)
 	send_package(msg_id.S2C_LoginResp, protocol.pack_login_resp(ok, message, user_id, user_token))
 	if ok then
-		logged_in = true
-		uid = user_id
-		username = user
-		token = user_token
-		skynet.error(string.format("[agent] fd=%d login ok user=%s uid=%d", client_fd, user, user_id))
+		apply_auth_success(user, user_id, user_token)
+	end
+end
+
+local function handle_token_login(payload)
+	local tok = protocol.unpack_token_login_req(payload)
+	if not tok then
+		send_package(msg_id.S2C_LoginResp, protocol.pack_login_resp(false, "bad token packet"))
+		return
+	end
+
+	local ok, user_id, user_token, message, user = skynet.call(LOGIN, "lua", "token_login", tok)
+	send_package(msg_id.S2C_LoginResp, protocol.pack_login_resp(ok, message, user_id, user_token))
+	if ok then
+		apply_auth_success(user, user_id, user_token)
 	end
 end
 
@@ -79,6 +97,7 @@ end
 
 local handlers = {
 	[msg_id.C2S_LoginReq] = handle_login,
+	[msg_id.C2S_TokenLoginReq] = handle_token_login,
 	[msg_id.C2S_MatchReq] = handle_match,
 	[msg_id.C2S_PlayCard] = handle_play_card,
 	[msg_id.C2S_EndTurn] = handle_end_turn,
@@ -160,7 +179,6 @@ skynet.start(function()
 		if not f then
 			return
 		end
-		-- fire-and-forget commands
 		if cmd == "match_success" or cmd == "recv" or cmd == "push"
 			or cmd == "bind_room" or cmd == "disconnect" then
 			f(...)

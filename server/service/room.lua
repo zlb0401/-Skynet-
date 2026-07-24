@@ -159,8 +159,8 @@ local function apply_card(actor, card_id)
 	local opp_p = opponent_of(actor.uid)
 	local opp = battle.sides[opp_p.uid]
 
-    if me.energy < def.cost then
-		return false, "能量不足"
+	if me.energy < def.cost then
+		return false, "not enough energy"
 	end
 	me.energy = me.energy - def.cost
 
@@ -266,16 +266,12 @@ function CMD.play_card(uid, hand_index)
 		return
 	end
 	if battle.turn_uid ~= uid then
-		skynet.error(string.format("[room] play_card rejected uid=%d (turn=%d)", uid, battle.turn_uid))
-		battle.last_event = "不是你的回合"
-		broadcast_state()
 		return
 	end
 	local actor = find_player(uid)
 	local side = battle.sides[uid]
 	hand_index = hand_index + 1 -- lua 1-based
 	if hand_index < 1 or hand_index > #side.hand then
-		skynet.error(string.format("[room] play_card bad index uid=%d idx=%d hand=%d", uid, hand_index, #side.hand))
 		battle.last_event = "非法出牌"
 		broadcast_state()
 		return
@@ -287,13 +283,10 @@ function CMD.play_card(uid, hand_index)
 	if not ok then
 		-- rollback: put card back
 		table.insert(side.hand, hand_index, card_id)
-		skynet.error(string.format("[room] play_card fail uid=%d card=%s err=%s", uid, tostring(card_id), tostring(err)))
 		battle.last_event = err or "出牌失败"
 		broadcast_state()
 		return
 	end
-	skynet.error(string.format("[room] play_card ok uid=%d card=%s hp_opp=%d",
-		uid, tostring(card_id), battle.sides[opponent_of(uid).uid].hp))
 	table.insert(side.discard, card_id)
 	if check_death() then
 		return
@@ -306,8 +299,6 @@ function CMD.end_turn(uid)
 		return
 	end
 	if battle.turn_uid ~= uid then
-		battle.last_event = "不是你的回合"
-		broadcast_state()
 		return
 	end
 	local next_p = opponent_of(uid)

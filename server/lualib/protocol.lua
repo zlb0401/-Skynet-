@@ -43,6 +43,26 @@ function M.pack_login_req(username, password)
 		.. string.pack(">B", #password) .. password
 end
 
+
+function M.pack_token_login_req(token)
+	token = token or ""
+	if #token > 255 then
+		token = token:sub(1, 255)
+	end
+	return string.pack(">B", #token) .. token
+end
+
+function M.unpack_token_login_req(payload)
+	if not payload or #payload < 1 then
+		return nil
+	end
+	local tlen = string.unpack(">B", payload)
+	if #payload < 1 + tlen then
+		return nil
+	end
+	return payload:sub(2, 1 + tlen)
+end
+
 function M.unpack_login_req(payload)
 	if #payload < 2 then
 		return nil, nil

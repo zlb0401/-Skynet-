@@ -109,4 +109,34 @@ public class PlayerDeck : MonoBehaviour
             Logger.LogError($"Card '{cardName}' not found in card dictionary.", this);
         }
     }
+
+    public bool TryGetCard(string cardName, out Card card) =>
+        allCardsDictionary.TryGetValue(cardName, out card);
+
+    public void RemoveAt(int index)
+    {
+        if (index >= 0 && index < playerDeck.Count)
+        {
+            playerDeck.RemoveAt(index);
+        }
+    }
+
+    public void SetDeckFromKeys(IReadOnlyList<string> keys)
+    {
+        playerDeck.Clear();
+        if (keys == null)
+        {
+            return;
+        }
+
+        foreach (var key in keys)
+        {
+            if (allCardsDictionary.TryGetValue(key, out var card))
+            {
+                playerDeck.Add(card);
+            }
+        }
+
+        Logger.Log($"[PlayerDeck] set from server, count={playerDeck.Count}", this);
+    }
 }

@@ -13,12 +13,24 @@ public class SkynetOnlineOverlay : MonoBehaviour
     private static TMP_FontAsset _font;
 
     private GameObject _loginRoot;
+    private GameObject _registerRoot;
     private GameObject _canvasGo;
     private TMP_InputField _usernameInput;
     private TMP_InputField _passwordInput;
+    private TMP_InputField _regUsernameInput;
+    private TMP_InputField _regPasswordInput;
+    private TMP_InputField _regConfirmInput;
+    private TMP_InputField _regCaptchaInput;
     private TMP_Text _statusText;
+    private TMP_Text _regStatusText;
+    private TMP_Text _regCaptchaQuestion;
     private TMP_Text _welcomeText;
     private Button _loginButton;
+    private Button _openRegisterButton;
+    private Button _registerSubmitButton;
+    private Button _registerCancelButton;
+    private Button _refreshCaptchaButton;
+    private string _captchaId = string.Empty;
     private GameObject _mainMenuButtons;
     private Button _matchButton;
     private Button _logoutButton;
@@ -54,6 +66,8 @@ public class SkynetOnlineOverlay : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        WalletHudUI.Instance?.SetVisible(false);
+
         if (scene.name != "MainMenu")
         {
             if (_loginRoot != null)
@@ -141,6 +155,14 @@ public class SkynetOnlineOverlay : MonoBehaviour
         {
             oldLogout.name = "LogoutButton_OLD";
             Destroy(oldLogout.gameObject);
+        }
+
+        // Remove legacy text UpgradeButton if a previous build left it in the vertical list.
+        var oldUpgrade = _mainMenuButtons.transform.Find("UpgradeButton")
+            ?? _mainMenuButtons.transform.Find("UpgradeButton_OLD");
+        if (oldUpgrade != null)
+        {
+            Destroy(oldUpgrade.gameObject);
         }
 
         _matchButton = CloneOriginalMenuButton("MatchButton", "匹配对战", OnMatchClicked);
@@ -329,13 +351,37 @@ public class SkynetOnlineOverlay : MonoBehaviour
 
     private void EnsureLoginUi()
     {
-        if (_loginRoot != null)
+        // Rebuild if old dual-button layout without register popup.
+        if (_loginRoot != null && _registerRoot != null)
         {
             StartCoroutine(RefreshInputCaretsNextFrame());
             return;
         }
 
-        // Ensure font exists before building TMP inputs (first-frame caret needs a font).
+        if (_canvasGo != null)
+        {
+            Destroy(_canvasGo);
+            _canvasGo = null;
+            _loginRoot = null;
+            _registerRoot = null;
+            _usernameInput = null;
+            _passwordInput = null;
+            _regUsernameInput = null;
+            _regPasswordInput = null;
+            _regConfirmInput = null;
+            _statusText = null;
+            _regStatusText = null;
+            _welcomeText = null;
+            _loginButton = null;
+            _openRegisterButton = null;
+            _registerSubmitButton = null;
+            _registerCancelButton = null;
+            _refreshCaptchaButton = null;
+            _regCaptchaInput = null;
+            _regCaptchaQuestion = null;
+            _captchaId = string.Empty;
+        }
+
         _ = DefaultFont;
 
         _canvasGo = new GameObject("SkynetLoginCanvas");
@@ -348,7 +394,6 @@ public class SkynetOnlineOverlay : MonoBehaviour
         _canvasGo.AddComponent<GraphicRaycaster>();
         DontDestroyOnLoad(_canvasGo);
 
-        // Dim background so login feels like a gate.
         var dim = new GameObject("Dim");
         dim.transform.SetParent(_canvasGo.transform, false);
         var dimRt = dim.AddComponent<RectTransform>();
@@ -360,13 +405,21 @@ public class SkynetOnlineOverlay : MonoBehaviour
         dimImg.color = new Color(0.02f, 0.03f, 0.05f, 0.55f);
         dimImg.raycastTarget = true;
 
+        BuildLoginPanel();
+        BuildRegisterPopup();
+        ChineseFontBootstrap.ApplyToScene();
+        StartCoroutine(RefreshInputCaretsNextFrame());
+    }
+
+    private void BuildLoginPanel()
+    {
         _loginRoot = new GameObject("LoginPanel");
         _loginRoot.transform.SetParent(_canvasGo.transform, false);
         var panelRect = _loginRoot.AddComponent<RectTransform>();
         panelRect.anchorMin = new Vector2(0.5f, 0.5f);
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(460f, 360f);
+        panelRect.sizeDelta = new Vector2(460f, 380f);
         panelRect.anchoredPosition = Vector2.zero;
 
         var bg = _loginRoot.AddComponent<Image>();
@@ -378,11 +431,134 @@ public class SkynetOnlineOverlay : MonoBehaviour
         _usernameInput = CreateInput(_loginRoot.transform, "账号", new Vector2(0f, 20f), "test");
         _passwordInput = CreateInput(_loginRoot.transform, "密码", new Vector2(0f, -40f), "123456", true);
         _loginButton = CreateButton(_loginRoot.transform, "登录", new Vector2(0f, -110f), OnLoginClicked, new Vector2(220f, 48f));
-        _statusText = CreateLabel(_loginRoot.transform, "", new Vector2(0f, -165f), 18);
-        ChineseFontBootstrap.ApplyToScene();
+        _openRegisterButton = CreateButton(_loginRoot.transform, "注册账号", new Vector2(0f, -168f), OpenRegisterPopup, new Vector2(220f, 40f));
+        _statusText = CreateLabel(_loginRoot.transform, "", new Vector2(0f, -215f), 18);
+    }
 
-        // First creation: caret often missing until InputField is toggled once.
+    private void BuildRegisterPopup()
+    {
+        _registerRoot = new GameObject("RegisterPanel");
+        _registerRoot.transform.SetParent(_canvasGo.transform, false);
+        var panelRect = _registerRoot.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.sizeDelta = new Vector2(500f, 520f);
+        panelRect.anchoredPosition = Vector2.zero;
+
+        var bg = _registerRoot.AddComponent<Image>();
+        bg.sprite = UiWhiteSprite;
+        bg.color = new Color(0.07f, 0.09f, 0.13f, 0.98f);
+
+        CreateLabel(_registerRoot.transform, "注册新账号", new Vector2(0f, 210f), 30);
+        CreateLabel(_registerRoot.transform, "账号 3-16 位 · 密码 6-32 位", new Vector2(0f, 170f), 16);
+        _regUsernameInput = CreateInput(_registerRoot.transform, "新账号", new Vector2(0f, 110f), "");
+        _regPasswordInput = CreateInput(_registerRoot.transform, "设置密码", new Vector2(0f, 50f), "", true);
+        _regConfirmInput = CreateInput(_registerRoot.transform, "确认密码", new Vector2(0f, -10f), "", true);
+
+        _regCaptchaQuestion = CreateLabel(_registerRoot.transform, "验证码：加载中…", new Vector2(-60f, -70f), 20);
+        _regCaptchaQuestion.alignment = TextAlignmentOptions.Left;
+        var qRect = _regCaptchaQuestion.GetComponent<RectTransform>();
+        qRect.sizeDelta = new Vector2(260f, 40f);
+        qRect.anchoredPosition = new Vector2(-40f, -70f);
+
+        _refreshCaptchaButton = CreateButton(_registerRoot.transform, "换一题", new Vector2(160f, -70f), () => _ = RefreshCaptchaAsync(), new Vector2(120f, 40f));
+        _regCaptchaInput = CreateInput(_registerRoot.transform, "验证码答案", new Vector2(0f, -125f), "");
+
+        _registerSubmitButton = CreateButton(_registerRoot.transform, "确认注册", new Vector2(-115f, -190f), OnRegisterSubmitClicked, new Vector2(200f, 48f));
+        _registerCancelButton = CreateButton(_registerRoot.transform, "返回登录", new Vector2(115f, -190f), CloseRegisterPopup, new Vector2(200f, 48f));
+        _regStatusText = CreateLabel(_registerRoot.transform, "", new Vector2(0f, -245f), 18);
+
+        _registerRoot.SetActive(false);
+    }
+
+    private async void OpenRegisterPopup()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        if (_registerRoot != null)
+        {
+            _registerRoot.SetActive(true);
+        }
+
+        if (_loginRoot != null)
+        {
+            _loginRoot.SetActive(false);
+        }
+
+        if (_regStatusText != null)
+        {
+            _regStatusText.text = "";
+        }
+
         StartCoroutine(RefreshInputCaretsNextFrame());
+        await RefreshCaptchaAsync();
+    }
+
+    private void CloseRegisterPopup()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        if (_registerRoot != null)
+        {
+            _registerRoot.SetActive(false);
+        }
+
+        if (_loginRoot != null)
+        {
+            _loginRoot.SetActive(true);
+        }
+
+        StartCoroutine(RefreshInputCaretsNextFrame());
+    }
+
+    private async System.Threading.Tasks.Task RefreshCaptchaAsync()
+    {
+        if (_network == null)
+        {
+            SetRegStatus("未找到网络组件");
+            return;
+        }
+
+        try
+        {
+            if (_regCaptchaQuestion != null)
+            {
+                _regCaptchaQuestion.text = "验证码：加载中…";
+            }
+
+            var challenge = await AuthClient.FetchCaptchaAsync(_network.AuthHost, _network.AuthPort);
+            _captchaId = challenge.Id;
+            if (_regCaptchaQuestion != null)
+            {
+                _regCaptchaQuestion.text = string.IsNullOrEmpty(challenge.Question)
+                    ? "验证码：获取失败"
+                    : "验证码：" + challenge.Question;
+                ChineseFontBootstrap.ApplyChineseFont(_regCaptchaQuestion);
+            }
+
+            if (_regCaptchaInput != null)
+            {
+                _regCaptchaInput.text = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _captchaId = string.Empty;
+            if (_regCaptchaQuestion != null)
+            {
+                _regCaptchaQuestion.text = "验证码：获取失败";
+            }
+
+            SetRegStatus("验证码加载失败: " + TranslateAuthMessage(ex.Message));
+            Debug.LogWarning("[SkynetOnline] captcha: " + ex.Message);
+        }
     }
 
     private System.Collections.IEnumerator RefreshInputCaretsNextFrame()
@@ -414,7 +590,11 @@ public class SkynetOnlineOverlay : MonoBehaviour
             yield break;
         }
 
-        foreach (var input in new[] { _usernameInput, _passwordInput })
+        foreach (var input in new[]
+                 {
+                     _usernameInput, _passwordInput,
+                     _regUsernameInput, _regPasswordInput, _regConfirmInput, _regCaptchaInput
+                 })
         {
             if (input == null)
             {
@@ -459,6 +639,11 @@ public class SkynetOnlineOverlay : MonoBehaviour
                 _canvasGo.SetActive(false);
             }
 
+            if (_registerRoot != null)
+            {
+                _registerRoot.SetActive(false);
+            }
+
             if (_mainMenuButtons != null)
             {
                 _mainMenuButtons.SetActive(true);
@@ -469,6 +654,13 @@ public class SkynetOnlineOverlay : MonoBehaviour
             {
                 Debug.LogError("[SkynetOnline] MainMenuButtons not found after login");
             }
+
+            if (_network != null && !string.IsNullOrEmpty(_network.Token))
+            {
+                _ = RefreshWalletAsync(_network.Token);
+            }
+
+            MainMenuCornerDockUI.Instance?.SetVisible(true);
         }
         else
         {
@@ -486,6 +678,18 @@ public class SkynetOnlineOverlay : MonoBehaviour
             {
                 _loginRoot.SetActive(true);
             }
+
+            if (_registerRoot != null)
+            {
+                _registerRoot.SetActive(false);
+            }
+
+            WalletHudUI.Instance?.SetVisible(false);
+            MainMenuCornerDockUI.Instance?.SetVisible(false);
+            CardUpgradePanelUI.Instance?.Close();
+            BagPanelUI.Instance?.Close();
+            DeckEditPanelUI.Instance?.Close();
+            GachaPanelUI.Instance?.Close();
         }
     }
 
@@ -547,39 +751,275 @@ public class SkynetOnlineOverlay : MonoBehaviour
             return;
         }
 
-        _busy = true;
-        if (_loginButton != null)
+        await RunCppAuthThenEnterSkynet(isRegister: false);
+    }
+
+    private async void OnRegisterSubmitClicked()
+    {
+        if (_busy || _network == null)
         {
-            _loginButton.interactable = false;
+            return;
         }
 
-        SetStatus("连接中...");
+        if (_network.IsConnected && _network.Uid != 0)
+        {
+            SetRegStatus("已登录，请先退出登录");
+            return;
+        }
 
+        var user = _regUsernameInput != null ? _regUsernameInput.text.Trim() : string.Empty;
+        var pass = _regPasswordInput != null ? _regPasswordInput.text : string.Empty;
+        var confirm = _regConfirmInput != null ? _regConfirmInput.text : string.Empty;
+        var captchaAnswer = _regCaptchaInput != null ? _regCaptchaInput.text.Trim() : string.Empty;
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+        {
+            SetRegStatus("请输入账号和密码");
+            return;
+        }
+
+        if (pass != confirm)
+        {
+            SetRegStatus("两次密码不一致");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_captchaId) || string.IsNullOrEmpty(captchaAnswer))
+        {
+            SetRegStatus("请填写验证码");
+            return;
+        }
+
+        if (_usernameInput != null)
+        {
+            _usernameInput.text = user;
+        }
+
+        if (_passwordInput != null)
+        {
+            _passwordInput.text = pass;
+        }
+
+        await RunCppAuthThenEnterSkynet(
+            isRegister: true,
+            usernameOverride: user,
+            passwordOverride: pass,
+            captchaId: _captchaId,
+            captchaAnswer: captchaAnswer);
+    }
+
+    /// <summary>
+    /// 1) C++ Auth :8889 register/login → token
+    /// 2) Skynet :8888 TokenLogin → enter game session
+    /// </summary>
+    private async System.Threading.Tasks.Task RunCppAuthThenEnterSkynet(
+        bool isRegister,
+        string usernameOverride = null,
+        string passwordOverride = null,
+        string captchaId = null,
+        string captchaAnswer = null)
+    {
+        _busy = true;
+        SetAuthButtonsInteractable(false);
+
+        _username = !string.IsNullOrEmpty(usernameOverride)
+            ? usernameOverride
+            : (_usernameInput != null ? _usernameInput.text.Trim() : string.Empty);
+        var password = !string.IsNullOrEmpty(passwordOverride)
+            ? passwordOverride
+            : (_passwordInput != null ? _passwordInput.text : string.Empty);
+        if (string.IsNullOrEmpty(_username) || string.IsNullOrEmpty(password))
+        {
+            _busy = false;
+            SetAuthButtonsInteractable(true);
+            if (isRegister)
+            {
+                SetRegStatus("请输入账号和密码");
+            }
+            else
+            {
+                SetStatus("请输入账号和密码");
+            }
+
+            return;
+        }
+
+        var action = isRegister ? "注册" : "登录";
         try
         {
+            if (isRegister)
+            {
+                SetRegStatus("连接鉴权服务中...");
+            }
+            else
+            {
+                SetStatus("连接鉴权服务中...");
+            }
+
+            var authHost = _network.AuthHost;
+            var authPort = _network.AuthPort;
+            LoginResult authResult = isRegister
+                ? await AuthClient.RegisterAsync(authHost, authPort, _username, password, captchaId, captchaAnswer)
+                : await AuthClient.LoginAsync(authHost, authPort, _username, password);
+
+            if (!authResult.Ok)
+            {
+                HandleAuthResult(authResult, action);
+                if (isRegister)
+                {
+                    await RefreshCaptchaAsync();
+                }
+
+                return;
+            }
+
+            if (isRegister)
+            {
+                SetRegStatus("进入游戏服务...");
+            }
+            else
+            {
+                SetStatus("进入游戏服务...");
+            }
+
             if (!_network.IsConnected)
             {
                 await _network.ConnectAsync();
             }
 
-            _username = _usernameInput != null ? _usernameInput.text.Trim() : "test";
-            SetStatus("登录中...");
-            _network.SendLogin(_username, _passwordInput != null ? _passwordInput.text : "123456");
-            StartCoroutine(LoginTimeoutWatchdog(8f));
+            if (isRegister)
+            {
+                SetRegStatus($"{action}确认中...");
+            }
+            else
+            {
+                SetStatus($"{action}确认中...");
+            }
+
+            _network.SendTokenLogin(authResult.Token);
+            StartCoroutine(AuthTimeoutWatchdog(8f, action));
+            _ = RefreshWalletAsync(authResult.Token);
         }
         catch (Exception ex)
         {
             _busy = false;
-            if (_loginButton != null)
+            SetAuthButtonsInteractable(true);
+            var msg = $"{action}失败: " + TranslateAuthMessage(ex.Message);
+            if (isRegister)
             {
-                _loginButton.interactable = true;
+                SetRegStatus(msg);
+                await RefreshCaptchaAsync();
+            }
+            else
+            {
+                SetStatus(msg);
             }
 
-            SetStatus("连接失败: " + ex.Message);
+            Debug.LogError("[SkynetOnline] cpp auth flow: " + ex);
         }
     }
 
-    private System.Collections.IEnumerator LoginTimeoutWatchdog(float seconds)
+    private async System.Threading.Tasks.Task RefreshWalletAsync(string token)
+    {
+        if (_network == null || string.IsNullOrEmpty(token))
+        {
+            return;
+        }
+
+        try
+        {
+            var inv = await AuthClient.FetchInventoryAsync(_network.AuthHost, _network.AuthPort, token);
+            if (inv.Ok)
+            {
+                CardUpgradeCache.SetWallet(inv.Gold, inv.Dust, inv.Diamond, inv.Ticket);
+                WalletHudUI.Instance?.SetBalances(inv.Gold, inv.Dust, inv.Diamond, inv.Ticket, _loggedIn);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[SkynetOnline] wallet: " + ex.Message);
+        }
+
+        try
+        {
+            var ups = await AuthClient.ListUpgradesAsync(_network.AuthHost, _network.AuthPort, token);
+            if (ups.Ok)
+            {
+                CardUpgradeCache.ApplyList(ups);
+                WalletHudUI.Instance?.SetBalances(ups.Gold, ups.Dust, ups.Diamond, ups.Ticket, _loggedIn);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[SkynetOnline] upgrades: " + ex.Message);
+        }
+
+        try
+        {
+            var deck = await AuthClient.GetDeckAsync(_network.AuthHost, _network.AuthPort, token);
+            if (deck.Ok)
+            {
+                var pd = PlayerDeck.Instance ?? FindFirstObjectByType<PlayerDeck>();
+                pd?.SetDeckFromKeys(deck.Deck);
+                CardUpgradeCache.SetOwned(deck.Owned);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[SkynetOnline] deck: " + ex.Message);
+        }
+    }
+
+    private void OnUpgradeClicked()
+    {
+        // Kept for compatibility; entry is now the bottom-left corner dock.
+        MainMenuCornerDockUI.Instance?.SetVisible(_loggedIn);
+        if (CardUpgradePanelUI.Instance == null)
+        {
+            var go = new GameObject("CardUpgradePanelHost");
+            go.AddComponent<CardUpgradePanelUI>();
+        }
+
+        CardUpgradePanelUI.Instance.Open();
+    }
+
+    private void SetRegStatus(string msg)
+    {
+        if (_regStatusText != null)
+        {
+            _regStatusText.text = msg ?? "";
+            ChineseFontBootstrap.ApplyChineseFont(_regStatusText);
+        }
+    }
+
+    private void SetAuthButtonsInteractable(bool interactable)
+    {
+        if (_loginButton != null)
+        {
+            _loginButton.interactable = interactable;
+        }
+
+        if (_openRegisterButton != null)
+        {
+            _openRegisterButton.interactable = interactable;
+        }
+
+        if (_registerSubmitButton != null)
+        {
+            _registerSubmitButton.interactable = interactable;
+        }
+
+        if (_registerCancelButton != null)
+        {
+            _registerCancelButton.interactable = interactable;
+        }
+
+        if (_refreshCaptchaButton != null)
+        {
+            _refreshCaptchaButton.interactable = interactable;
+        }
+    }
+
+    private System.Collections.IEnumerator AuthTimeoutWatchdog(float seconds, string actionLabel)
     {
         yield return new WaitForSecondsRealtime(seconds);
         if (!_busy || _loggedIn)
@@ -588,12 +1028,9 @@ public class SkynetOnlineOverlay : MonoBehaviour
         }
 
         _busy = false;
-        if (_loginButton != null)
-        {
-            _loginButton.interactable = true;
-        }
+        SetAuthButtonsInteractable(true);
 
-        // Server may have accepted login but UI callback failed — recover if uid set.
+        // Server may have accepted auth but UI callback failed — recover if uid set.
         if (_network != null && _network.Uid != 0)
         {
             _loggedIn = true;
@@ -612,11 +1049,15 @@ public class SkynetOnlineOverlay : MonoBehaviour
                 Debug.LogError("[SkynetOnline] timeout recover menu failed: " + ex);
             }
 
-            ShowToast("登录已完成");
+            ShowToast($"{actionLabel}已完成");
             yield break;
         }
 
-        SetStatus("登录超时，请重试（服务器可能未响应）");
+        SetStatus($"{actionLabel}超时，请重试（服务器可能未响应）");
+        if (actionLabel == "注册")
+        {
+            SetRegStatus("注册超时，请重试（鉴权服务可能未响应）");
+        }
     }
 
     private void OnMatchClicked()
@@ -643,12 +1084,15 @@ public class SkynetOnlineOverlay : MonoBehaviour
     {
         // Flip gate first so disconnect callbacks cannot fight the UI.
         OnlineSession.Clear();
+        CardUpgradeCache.Clear();
+        CardUpgradePanelUI.Instance?.Close();
+        BagPanelUI.Instance?.Close();
+        DeckEditPanelUI.Instance?.Close();
+        GachaPanelUI.Instance?.Close();
+        MainMenuCornerDockUI.Instance?.SetVisible(false);
         _loggedIn = false;
         _busy = false;
-        if (_loginButton != null)
-        {
-            _loginButton.interactable = true;
-        }
+        SetAuthButtonsInteractable(true);
 
         if (_canvasGo == null)
         {
@@ -669,40 +1113,68 @@ public class SkynetOnlineOverlay : MonoBehaviour
         }
     }
 
-    private void HandleLoginResult(LoginResult result)
+    private void HandleLoginResult(LoginResult result) => HandleAuthResult(result, "登录");
+
+    private void HandleAuthResult(LoginResult result, string actionLabel)
     {
         _busy = false;
-        if (_loginButton != null)
-        {
-            _loginButton.interactable = true;
-        }
+        SetAuthButtonsInteractable(true);
+        var isRegister = actionLabel == "注册";
 
         if (!result.Ok)
         {
             _loggedIn = false;
-            ApplyGateState("登录失败: " + result.Message);
+            var msg = $"{actionLabel}失败: " + TranslateAuthMessage(result.Message);
             if (_canvasGo != null)
             {
                 _canvasGo.SetActive(true);
             }
 
-            if (_loginRoot != null)
+            if (isRegister)
             {
-                _loginRoot.SetActive(true);
+                if (_registerRoot != null)
+                {
+                    _registerRoot.SetActive(true);
+                }
+
+                if (_loginRoot != null)
+                {
+                    _loginRoot.SetActive(false);
+                }
+
+                SetRegStatus(msg);
+            }
+            else
+            {
+                if (_loginRoot != null)
+                {
+                    _loginRoot.SetActive(true);
+                }
+
+                if (_registerRoot != null)
+                {
+                    _registerRoot.SetActive(false);
+                }
+
+                SetStatus(msg);
             }
 
             return;
         }
 
-        // Flip UI first so we never stay stuck on「登录中」if menu styling throws.
         _loggedIn = true;
+        if (_registerRoot != null)
+        {
+            _registerRoot.SetActive(false);
+        }
+
         try
         {
             _network?.SendHeartbeat();
         }
         catch (Exception ex)
         {
-            Debug.LogWarning("[SkynetOnline] heartbeat after login failed: " + ex.Message);
+            Debug.LogWarning("[SkynetOnline] heartbeat after auth failed: " + ex.Message);
         }
 
         ApplyGateState($"欢迎 {_username}");
@@ -718,10 +1190,42 @@ public class SkynetOnlineOverlay : MonoBehaviour
         }
         catch (Exception ex)
         {
-            Debug.LogError("[SkynetOnline] build main menu after login failed: " + ex);
+            Debug.LogError("[SkynetOnline] build main menu after auth failed: " + ex);
         }
 
-        ShowToast($"登录成功：{_username}");
+        ShowToast($"{actionLabel}成功：{_username}");
+    }
+
+    private static string TranslateAuthMessage(string message)
+    {
+        if (string.IsNullOrEmpty(message))
+        {
+            return "未知错误";
+        }
+
+        return message switch
+        {
+            "username is empty" => "账号不能为空",
+            "password is empty" => "密码不能为空",
+            "username length 3-16" => "账号长度需 3-16 位",
+            "username only letters, digits, underscore" => "账号只能包含字母、数字、下划线",
+            "password length 6-32" => "密码长度需 6-32 位",
+            "username already exists" => "账号已存在",
+            "not enough dust" => "粉尘不足",
+            "not enough ticket" => "招募券不足",
+            "not enough diamond" => "钻石不足",
+            "already max level" => "已达最高等级",
+            "unknown card" => "不可升级的卡牌",
+            "invalid username or password" => "账号或密码错误",
+            "register failed" => "注册失败，请稍后重试",
+            "captcha invalid or expired" => "验证码错误或已过期",
+            "invalid or expired token" => "登录态已失效，请重新登录",
+            "use C++ Auth service :8889" => "请使用注册弹窗（走鉴权服务）",
+            "token is empty" => "缺少登录凭证",
+            _ => message.Contains("Connection refused") || message.Contains("积极拒绝")
+                ? "连不上鉴权服务(8889)，请确认服务已启动"
+                : message
+        };
     }
 
     private void HandleMatchResult(MatchResult result)

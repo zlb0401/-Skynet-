@@ -64,37 +64,7 @@ public class CardDisplay : MonoBehaviour
         if (nameText) nameText.text = cardData.GetDisplayName();
         if (manaCostText) manaCostText.text = cardData.energyCost.ToString();
 
-        // Extract values from effects for placeholders
-        int damage = 0, armor = 0, cards = 0, energy = 0, hpLost = 0, aoeDamage = 0, healthSet = 0;
-
-        var effects = cardData.GetCardEffects();
-        if (effects != null)
-        {
-            foreach (var effect in effects)
-            {
-                switch (effect)
-                {
-                    case DamageEffect e: damage = e.damageAmount; break;
-                    case ArmorEffect e: armor = e.armorAmount; break;
-                    case DrawCardEffect e: cards = e.cardsToDraw; break;
-                    case GainEnergyEffect e: energy = e.energyAmount; break;
-                    case LoseHealthEffect e: hpLost = e.healthLoss; break;
-                    case AOEDamageEffect e: aoeDamage = e.damageAmount; break;
-                    case SetHealthEffect e: healthSet = e.newHealth; break;
-                }
-            }
-        }
-
-        string finalDescription = cardData.cardDescription ?? string.Empty;
-        finalDescription = finalDescription.Replace("{damage}", damage > 0 ? damage.ToString() : "-");
-        finalDescription = finalDescription.Replace("{armor}", armor > 0 ? armor.ToString() : "-");
-        finalDescription = finalDescription.Replace("{cards}", cards > 0 ? cards.ToString() : "-");
-        finalDescription = finalDescription.Replace("{energy}", energy > 0 ? energy.ToString() : "-");
-        finalDescription = finalDescription.Replace("{hpLost}", hpLost > 0 ? hpLost.ToString() : "-");
-        finalDescription = finalDescription.Replace("{aoeDamage}", aoeDamage > 0 ? aoeDamage.ToString() : "-");
-        finalDescription = finalDescription.Replace("{healthSet}", healthSet > 0 ? healthSet.ToString() : "-");
-
-        if (descriptionText) descriptionText.text = finalDescription;
+        if (descriptionText) descriptionText.text = CardDescriptionUtil.Format(cardData);
         if (CardImage) CardImage.sprite = cardData.cardSprite;
 
         UpdateCardCoverImage();

@@ -12,5 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5a6b7c8d9e041234455667788990011, type: 3}
   m_Name: ServerConfig
   m_EditorClassIdentifier: 
+  authHost: 127.0.0.1
+  authPort: 8889
   host: 127.0.0.1
   port: 8888

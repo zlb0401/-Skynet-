@@ -28,3 +28,7 @@ client/CardBattle-Unity6/MemoryCaptures/
 # OS
 .DS_Store
 Thumbs.db
+
+# C++ auth build
+auth_cpp/build/
+auth_cpp/logs/

@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d39b0d3a141cc14a955653310dd53c6, type: 3}
+  m_Name: Shield Bash
+  m_EditorClassIdentifier: Assembly-CSharp::MyProjectF.Assets.Scripts.Cards.Card
+  resourcePath: Cards/Guard Cards/Shield Bash
+  cardName: Shield Bash
+  displayName: 盾击
+  cardDescription: 获得5点护甲，造成4点伤害。
+  cardType: 1
+  cardSprite: {fileID: 21300000, guid: 355cfa5f05d2235a9fd0424d7ad1e353, type: 3}
+  energyCost: 1
+  cardRarity: 0
+  exhaustAfterUse: 0
+  effects:
+  - rid: 333882119959
+  - rid: 333882119960
+  targetType: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: 333882119959
+      type: {class: ArmorEffect, ns: , asm: Assembly-CSharp}
+      data:
+        targetType: 2
+        armorAmount: 5
+    - rid: 333882119960
+      type: {class: DamageEffect, ns: , asm: Assembly-CSharp}
+      data:
+        targetType: 0
+        damageAmount: 4

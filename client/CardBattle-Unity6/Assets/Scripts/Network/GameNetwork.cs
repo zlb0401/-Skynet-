@@ -29,6 +29,7 @@ namespace CardBattle.Network
         public string Token { get; private set; } = string.Empty;
 
         public event Action<LoginResult> OnLoginResult;
+        public event Action<LoginResult> OnRegisterResult;
         public event Action<MatchResult> OnMatchResult;
         public event Action<BattleStateView> OnBattleStart;
         public event Action<BattleStateView> OnBattleState;
@@ -99,6 +100,25 @@ namespace CardBattle.Network
             var payload = PacketCodec.PackLoginReq(username, password);
             SendPacket(MessageIds.C2S_LoginReq, payload);
         }
+
+        public void SendTokenLogin(string token)
+        {
+            var payload = PacketCodec.PackTokenLoginReq(token);
+            SendPacket(MessageIds.C2S_TokenLoginReq, payload);
+        }
+
+        public void SendRegister(string username, string password)
+        {
+            var payload = PacketCodec.PackLoginReq(username, password);
+            SendPacket(MessageIds.C2S_RegisterReq, payload);
+        }
+
+        public string AuthHost =>
+            serverConfig != null && !string.IsNullOrEmpty(serverConfig.authHost)
+                ? serverConfig.authHost
+                : (serverConfig != null ? serverConfig.host : "127.0.0.1");
+
+        public int AuthPort => serverConfig != null ? serverConfig.authPort : 8889;
 
         public void SendHeartbeat()
         {
@@ -285,6 +305,16 @@ namespace CardBattle.Network
                         Token = result.Token;
                     }
                     OnLoginResult?.Invoke(result);
+                    break;
+
+                case MessageIds.S2C_RegisterResp:
+                    var registerResult = PacketCodec.ParseLoginResp(packet.Payload);
+                    if (registerResult.Ok)
+                    {
+                        Uid = registerResult.Uid;
+                        Token = registerResult.Token;
+                    }
+                    OnRegisterResult?.Invoke(registerResult);
                     break;
 
                 case MessageIds.S2C_MatchResp:

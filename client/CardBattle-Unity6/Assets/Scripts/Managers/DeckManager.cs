@@ -29,7 +29,13 @@ public class DeckManager : SceneSingleton<DeckManager>
     /// <summary>Loads the player's deck into the draw pile and clears the discard pile.</summary>
     public void InitializeDeck()
     {
-        drawPile = new List<Card>(PlayerDeck.Instance.GetDeck());
+        var raw = PlayerDeck.Instance.GetDeck();
+        drawPile = new List<Card>(raw.Count);
+        foreach (var c in raw)
+        {
+            drawPile.Add(CardUpgradeRuntime.CloneWithUpgrades(c));
+        }
+
         discardPile.Clear();
         Logger.Log($"InitializeDeck: drawPile={drawPile.Count}, discard={discardPile.Count}", this);
     }

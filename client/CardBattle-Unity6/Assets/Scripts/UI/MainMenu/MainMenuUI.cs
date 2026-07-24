@@ -23,6 +23,7 @@ public class MainMenuUI : MonoBehaviour
     public void OnStartGame()
     {
         GameSession.Instance?.ResetStats();
+        StageRewardClient.BeginNewRun();
         SceneFlowManager.Instance.LoadScene(SceneType.Battle1);
     }
 

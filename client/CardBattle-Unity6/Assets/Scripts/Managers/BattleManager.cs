@@ -123,6 +123,14 @@ namespace MyProjectF.Assets.Scripts.Managers
                 return;
 
             SetBattleState(BattleState.WON);
+
+            var sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (sceneName == "BattleBoss1")
+            {
+                StageRewardClient.ClaimIfNeeded("boss1_clear");
+            }
+            // battle1_clear is claimed when entering Reward1 (minion clear → card pick + currency).
+
             SceneFlowManager.Instance.LoadNextAfterBattle();
         }
 

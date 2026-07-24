@@ -28,6 +28,8 @@ public class RewardCardView : MonoBehaviour
 
         if (debugLabel) debugLabel.text = def.cardData ? def.cardData.GetDisplayName() : "(null)";
 
+        EnsureRarityBadge(def);
+
         // Root sizing (safe defaults for a card-like container)
         var rt = GetComponent<RectTransform>();
         if (rt)
@@ -106,6 +108,61 @@ public class RewardCardView : MonoBehaviour
             button.onClick.AddListener(() => this.onChosen?.Invoke(this));
             button.interactable = true;
         }
+    }
+
+    private void EnsureRarityBadge(RewardDefinition def)
+    {
+        var existing = transform.Find("RarityBadge");
+        if (existing != null)
+        {
+            Destroy(existing.gameObject);
+        }
+
+        if (def?.cardData == null)
+        {
+            return;
+        }
+
+        var go = new GameObject("RarityBadge");
+        go.transform.SetParent(transform, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, 8f);
+        rt.sizeDelta = new Vector2(140f, 28f);
+        var bg = go.AddComponent<Image>();
+        bg.raycastTarget = false;
+        var label = go.AddComponent<TextMeshProUGUI>();
+        label.alignment = TextAlignmentOptions.Center;
+        label.fontSize = 18;
+        label.raycastTarget = false;
+        string name;
+        Color col;
+        switch (def.cardData.cardRarity)
+        {
+            case Card.CardRarity.Uncommon:
+                name = "稀有";
+                col = new Color(0.35f, 0.75f, 0.45f, 0.92f);
+                break;
+            case Card.CardRarity.Rare:
+                name = "史诗";
+                col = new Color(0.35f, 0.55f, 0.95f, 0.92f);
+                break;
+            case Card.CardRarity.Legendary:
+                name = "传说";
+                col = new Color(0.95f, 0.7f, 0.2f, 0.92f);
+                break;
+            default:
+                name = "普通";
+                col = new Color(0.55f, 0.55f, 0.6f, 0.9f);
+                break;
+        }
+
+        bg.color = col;
+        label.text = name;
+        label.color = Color.white;
+        ChineseFontBootstrap.ApplyChineseFont(label);
     }
 
     public void Interactable(bool value)
